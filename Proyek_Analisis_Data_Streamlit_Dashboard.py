@@ -4,7 +4,7 @@ import seaborn as sns
 import numpy as np
 import streamlit as st
 
-# Custom CSS to set background to white and text to black
+#styling
 st.markdown(
     """
     <style>
@@ -22,49 +22,60 @@ st.markdown(
         [data-testid="stHeader"] {
             background-color: #A0C4FF !important; /* Pastel Blue */
         }
+        div[data-baseweb="select"] > div {
+        background-color: white !important;
+        border: 2px solid black !important;
+        border-radius: 5px !important;
+    }
+    ul {
+        background-color: white !important; /* Background color */
+        border: 2px solid black !important; /* Black border */
+    }
+    ul li:hover {
+        background-color: lightgray !important; /* Light gray on hover */
+    }
     </style>
     """,
     unsafe_allow_html=True
 )
-
-# Load data
-daily_summary = pd.read_csv("daily_summary.csv", delimiter=",")
-monthly_summary_2011 = pd.read_csv("monthly_summary_2011.csv", delimiter=",")
-monthly_summary_2012 = pd.read_csv("monthly_summary_2012.csv", delimiter=",")
-df2 = pd.read_csv("df2.csv", delimiter=",")
-df_byYear2011 = pd.read_csv("df_byYear2011.csv", delimiter=",")
-df_byYear2012 = pd.read_csv("df_byYear2012.csv", delimiter=",")
-
 # Streamlit App Title
 st.title("Data Analysis - Bike Sharing Dataset (2011-2012)")
 
+# Load data
+
+df = pd.read_csv("day.csv", delimiter=",")
+df['dteday'] = pd.to_datetime(df['dteday'])
+df.loc[:, 'year'] = df['dteday'].dt.year
+df.loc[:, 'month'] = df['dteday'].dt.month
+
+year_options = df.loc[:, 'year'].unique()
+getYearSelection = st.selectbox("Select Year:", year_options, index=0)
+
+df_byYear = df[df['year'] == getYearSelection].copy()
+monthly_summary = df_byYear.groupby('month').agg(
+    total_cnt=('cnt', 'sum'),  
+    count_hours=('cnt', 'count'), 
+    windspeed =('windspeed','mean'),
+    season=('season', lambda x: x.mode().iloc[0] if not x.mode().empty else None)
+).reset_index()
+monthly_summary['count_per_hour'] = monthly_summary['total_cnt'] / (monthly_summary['count_hours'])
+
+
+df2 = pd.read_csv("df2.csv", delimiter=",")
+daily_summary = pd.read_csv("daily_summary.csv", delimiter=",")
+
+
+
 # Plot 1: Bike Rentals over the Months (2011)
-st.subheader("Figure 1 : Bike Rentals over the Months (2011)")
+st.subheader("Figure 1 : Bike Rentals over the Months "+"("+str(getYearSelection)+")")
 season_colors = {1: "#A0E7E5", 2: "#B4F8C8", 3: "#FFAEBC", 4: "#FBE7C6"}
 fig, ax = plt.subplots(figsize=(10, 5))
-ax.plot(monthly_summary_2011['month'], monthly_summary_2011['total_cnt'], marker='o', linestyle='-', color='b', label="Total Rentals")
+ax.plot(monthly_summary['month'], monthly_summary['total_cnt'], marker='o', linestyle='-', color='b', label="Total Rentals")
 for i in range(12):
-    ax.axvspan(i + 0.5, i + 1.5, color=season_colors[monthly_summary_2011['season'][i]], alpha=0.3)
+    ax.axvspan(i + 0.5, i + 1.5, color=season_colors[monthly_summary['season'][i]], alpha=0.3)
 ax.set_xlabel("Month")
 ax.set_ylabel("Total Count")
-ax.set_title("Bike Rentals Per Month (2011)")
-ax.legend()
-ax.grid(True)
-fig.text(0.5, -0.05, 
-    "Background colors represent seasonal changes:\n"
-    "Spring (Light Blue) | Summer (Light Green) | Fall (Pink) | Winter (Peach)",
-    wrap=True, horizontalalignment='center', fontsize=10, bbox=dict(facecolor='white', alpha=0.5, edgecolor='black'))
-st.pyplot(fig)
-
-# Plot 2: Bike Rentals per Month (2012)
-st.subheader("Figure 2 : Bike Rentals over the Months (2012)")
-fig, ax = plt.subplots(figsize=(10, 5))
-ax.plot(monthly_summary_2012['month'], monthly_summary_2012['total_cnt'], marker='o', linestyle='-', color='b', label="Total Rentals")
-for i in range(12):
-    ax.axvspan(i + 0.5, i + 1.5, color=season_colors[monthly_summary_2012['season'][i]], alpha=0.3)
-ax.set_xlabel("Month")
-ax.set_ylabel("Total Count")
-ax.set_title("Bike Rentals Over The Months (2012)")
+ax.set_title("Bike Rentals Per Month "+"("+str(getYearSelection)+")")
 ax.legend()
 ax.grid(True)
 fig.text(0.5, -0.05, 
@@ -74,8 +85,8 @@ fig.text(0.5, -0.05,
 st.pyplot(fig)
 
 
-# Plot 3: Correlation Heatmap
-st.subheader("Figure 3 : Correlation Heatmap Analysis")
+# Plot 2: Correlation Heatmap
+st.subheader("Figure 2 : Correlation Heatmap Analysis")
 fig, ax = plt.subplots(figsize=(10, 6))
 sns.heatmap(df2.corr(), annot=True, cmap="coolwarm", fmt=".2f", linewidths=0.5, ax=ax)
 ax.set_title("Correlation Heatmap")
@@ -88,34 +99,22 @@ st.write(
     """
 )
 
-# Plot 4: Scatter Plot 1
-st.subheader("Figure 4 : Bike Usage Group By Month With Temperature (2011)")
+# Plot 3: Scatter Plot 
+st.subheader("Figure 3 : Bike Usage Group By Month With Temperature "+"("+str(getYearSelection)+")")
 fig, ax = plt.subplots(figsize=(10, 6))
-scatter = ax.scatter(df_byYear2011['mnth'], df_byYear2011['cnt'], c=df_byYear2011['temp'], cmap='coolwarm', alpha=0.75)
+scatter = ax.scatter(df_byYear['mnth'], df_byYear['cnt'], c=df_byYear['temp'], cmap='coolwarm', alpha=0.75)
 cbar = plt.colorbar(scatter, ax=ax)
 cbar.set_label('Normalized Temperature 0-1')
 ax.set_xlabel("Month")
 ax.set_ylabel("Total Bike Rentals (cnt)")
-ax.set_title("Bike Rentals per Month with Temperature Indication (2011)")
+ax.set_title("Bike Rentals per Month with Temperature Indication "+"("+str(getYearSelection)+")")
 ax.set_xticks(range(1, 13))
 ax.set_xticklabels(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
 st.pyplot(fig)
 
-# Plot 5: Scatter Plot - Bike Rentals vs. Temperature (2012)
-st.subheader("Figure 5 : Bike Usage Group By Month With Temperature (2012)")
-fig, ax = plt.subplots(figsize=(10, 6))
-scatter = ax.scatter(df_byYear2012['mnth'], df_byYear2012['cnt'], c=df_byYear2012['temp'], cmap='coolwarm', alpha=0.75)
-cbar = plt.colorbar(scatter, ax=ax)
-cbar.set_label('Normalized Temperature 0-1')
-ax.set_xlabel("Month")
-ax.set_ylabel("Total Bike Rentals (cnt)")
-ax.set_title("Bike Rentals per Month with Temperature Indication (2012)")
-ax.set_xticks(range(1, 13))
-ax.set_xticklabels(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
-st.pyplot(fig)
 
-# Plot 6: Bar Chart - Casual vs Registered Users by Weekday
-st.subheader("Figure 6 : Casual vs Registered Users by Weekday (2011-2022)")
+# Plot 4: Bar Chart - Casual vs Registered Users by Weekday
+st.subheader("Figure 4 : Casual vs Registered Users by Weekday (2011-2022)")
 daily_summary = daily_summary.sort_values("weekday").reset_index(drop=True)
 fig, ax = plt.subplots(figsize=(10, 6))
 bar_width = 0.4
